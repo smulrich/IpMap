@@ -18,7 +18,7 @@ import java.net.UnknownHostException;
 /**
  * Created by ulrich on 11/8/15.
  */
-public class FreegeoipRestClient implements ILocationResolver {
+public class FreegeoipRestClient implements ILocationRestClient {
     private Context mContext;
     private RequestQueue mQueue;
 
@@ -37,15 +37,9 @@ public class FreegeoipRestClient implements ILocationResolver {
      * @param callback
      */
     @Override
-    public void GetLocationByIp(Inet4Address  ip, final LocationRequestListener callback)
+    public void GetLocationByIp(String  ip, final LocationRequestListener callback)
     {
-        if(ip==null){
-            if(callback != null)
-                callback.ErrorOccured(-4, "Null ip");
-            return;
-        }
-
-        String url = API_BASE_URL + "json/" + ip.getHostAddress();
+        String url = API_BASE_URL + "json/" + ip;
 
         // Request a json response from the provided URL.
         JsonObjectRequest jsonRequest = new JsonObjectRequest(Request.Method.GET, url, null,
@@ -55,20 +49,15 @@ public class FreegeoipRestClient implements ILocationResolver {
                         if(callback != null && jsonObject != null){
                             try{
                                 String reqIp = jsonObject.getString("ip");
-                                Inet4Address address = (Inet4Address) Inet4Address.getByName(reqIp);
                                 float lat = jsonObject.getLong("latitude");
                                 float lon = jsonObject.getLong("longitude");
-                                callback.LocationFound(address, lat, lon);
+                                callback.LocationFound(reqIp, lat, lon);
 
                             } catch (JSONException e) {
                                 e.printStackTrace();
                                 callback.ErrorOccured(-2, e.toString());
-                            } catch (UnknownHostException e) {
-                                e.printStackTrace();
-                                callback.ErrorOccured(-3, e.toString());
                             }
                         }
-
                     }
                 },
                 new Response.ErrorListener() {

@@ -13,13 +13,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.Inet4Address;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
  * Rest client for interfacing with IpInfoDB API.
  */
-public class IpInfoDbRestClient implements ILocationResolver {
+public class IpInfoDbRestClient implements ILocationRestClient {
 
 
 
@@ -40,15 +39,9 @@ public class IpInfoDbRestClient implements ILocationResolver {
      * @param callback
      */
     @Override
-    public void GetLocationByIp(Inet4Address ip, final LocationRequestListener callback)
+    public void GetLocationByIp(String ip, final LocationRequestListener callback)
     {
-        if(ip==null){
-            if(callback != null)
-                callback.ErrorOccured(-4, "Null ip");
-            return;
-        }
-
-        String url = API_BASE_URL + "&ip=" + ip.getHostAddress() + "&format=json";
+        String url = API_BASE_URL + "&ip=" + ip + "&format=json";
 
         // Request a json response from the provided URL.
         JsonObjectRequest jsonRequest = new JsonObjectRequest(Request.Method.GET, url, null,
@@ -62,8 +55,7 @@ public class IpInfoDbRestClient implements ILocationResolver {
                                 long lon = jsonObject.getLong("longitude");
                                 long lat = jsonObject.getLong("latitude");
                                 String reqIp = jsonObject.getString("ipAddress");
-                                Inet4Address address = (Inet4Address) Inet4Address.getByName(reqIp);
-                                callback.LocationFound(address, lat, lon);
+                                callback.LocationFound(reqIp, lat, lon);
                             } else {
                                 if(status != null)
                                     status += ": " + jsonObject.getString("statusMessage");
@@ -72,9 +64,6 @@ public class IpInfoDbRestClient implements ILocationResolver {
                         } catch (JSONException e) {
                             e.printStackTrace();
                             callback.ErrorOccured(-2, e.toString());
-                        } catch (UnknownHostException e) {
-                            e.printStackTrace();
-                            callback.ErrorOccured(-3, e.toString());
                         }
                     }
                 }

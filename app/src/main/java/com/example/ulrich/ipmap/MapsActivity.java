@@ -1,7 +1,6 @@
 package com.example.ulrich.ipmap;
 
 import android.content.Context;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -27,7 +26,7 @@ import java.net.UnknownHostException;
 public class MapsActivity extends AppCompatActivity {
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
-    public ILocationResolver mLocationResolver;
+    public LocationResolver mLocationResolver;
     private Context mContext;
 
     //Inpit filter to only allow valid ip as input
@@ -57,7 +56,8 @@ public class MapsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        mLocationResolver = new FreegeoipRestClient(this);//new IpInfoDbRestClient(this);
+//        mLocationResolver = new FreegeoipRestClient(this);
+        mLocationResolver = new LocationResolver(new IpInfoDbRestClient(this));
         mContext = this;
         setUpMapIfNeeded();
     }
@@ -73,42 +73,42 @@ public class MapsActivity extends AppCompatActivity {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu, menu);
 
-        final MenuItem searchMenuItem = menu.findItem(R.id.action_add);
-        if (searchMenuItem != null) {
-            final SearchView searchView = (SearchView) searchMenuItem.getActionView();
-            if (searchView != null) {
-                EditText searchEditTxt = (EditText) searchView.findViewById(android.support.v7.appcompat.R.id.search_src_text);
-                searchEditTxt.setFilters(mIpInputFilters);
-                searchEditTxt.setInputType(InputType.TYPE_CLASS_PHONE);
-                searchEditTxt.setHint(R.string.ip_address_hint);
-
-                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-                    @Override
-                    public boolean onQueryTextSubmit(String s) {
-                        searchView.clearFocus();
-
-                        MenuItemCompat.collapseActionView(searchMenuItem);
-                        Inet4Address address = null;
-                        try {
-                             address = (Inet4Address) Inet4Address.getByName(s);
-                        } catch (UnknownHostException e) {
-                            //Do nothing.  We will know that an error occurred since address will be null
-                        }
-                        if(address == null)
-                            Toast.makeText(mContext, R.string.invalidip, Toast.LENGTH_SHORT).show();
-                        else
-                            addIp(address);
-
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onQueryTextChange(String s) {
-                        return true;
-                    }
-                });
-            }
-        }
+//        final MenuItem searchMenuItem = menu.findItem(R.id.action_add);
+//        if (searchMenuItem != null) {
+//            final SearchView searchView = (SearchView) searchMenuItem.getActionView();
+//            if (searchView != null) {
+//                EditText searchEditTxt = (EditText) searchView.findViewById(android.support.v7.appcompat.R.id.search_src_text);
+//                searchEditTxt.setFilters(mIpInputFilters);
+//                searchEditTxt.setInputType(InputType.TYPE_CLASS_PHONE);
+//                searchEditTxt.setHint(R.string.ip_address_hint);
+//
+//                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+//                    @Override
+//                    public boolean onQueryTextSubmit(String s) {
+//                        searchView.clearFocus();
+//
+//                        MenuItemCompat.collapseActionView(searchMenuItem);
+//                        Inet4Address address = null;
+//                        try {
+//                             address = (Inet4Address) Inet4Address.getByName(s);
+//                        } catch (UnknownHostException e) {
+//                            //Do nothing.  We will know that an error occurred since address will be null
+//                        }
+//                        if(address == null)
+//                            Toast.makeText(mContext, R.string.invalidip, Toast.LENGTH_SHORT).show();
+//                        else
+//                            addIp(address);
+//
+//                        return true;
+//                    }
+//
+//                    @Override
+//                    public boolean onQueryTextChange(String s) {
+//                        return true;
+//                    }
+//                });
+//            }
+//        }
         return true;
     }
 
@@ -150,17 +150,18 @@ public class MapsActivity extends AppCompatActivity {
 
     }
 
-    public void addIp(Inet4Address address){
-        if(mLocationResolver != null) {
-            mLocationResolver.GetLocationByIp(address, new LocationRequestListener() {
+    public void addIpInRange(Inet4Address start,Inet4Address end){
+        if(mLocationResolver != null)
+            mLocationResolver.getLocations(start, end, new LocationRequestListener() {
                 @Override
-                public void LocationFound(Inet4Address resultIp, float latitude, float longitude) {
+                public void LocationFound(String ip, float latitude, float longitude) {
                     LatLng location = new LatLng(latitude, longitude);
                     mMap.addMarker(new MarkerOptions()
                                     .position(location)
-                                    .title(resultIp.getHostAddress())
+                                    .title(ip)
                     );
-                    mMap.animateCamera(CameraUpdateFactory.newLatLng(location));
+                    //TODO once start and end results found, animate camera to fill screen.
+//                    mMap.animateCamera(CameraUpdateFactory.newLatLng(location));
                 }
 
                 @Override
@@ -168,6 +169,26 @@ public class MapsActivity extends AppCompatActivity {
                     Toast.makeText(mContext, String.format("Error(%d):%s", code, message), Toast.LENGTH_SHORT).show();
                 }
             });
-        }
     }
+
+//    public void addIp(Inet4Address address){
+//        if(mLocationResolver != null) {
+//            mLocationResolver.GetLocationByIp(address, new LocationRequestListener() {
+//                @Override
+//                public void LocationFound(Inet4Address resultIp, float latitude, float longitude) {
+//                    LatLng location = new LatLng(latitude, longitude);
+//                    mMap.addMarker(new MarkerOptions()
+//                                    .position(location)
+//                                    .title(resultIp.getHostAddress())
+//                    );
+//                    mMap.animateCamera(CameraUpdateFactory.newLatLng(location));
+//                }
+//
+//                @Override
+//                public void ErrorOccured(int code, String message) {
+//                    Toast.makeText(mContext, String.format("Error(%d):%s", code, message), Toast.LENGTH_SHORT).show();
+//                }
+//            });
+//        }
+//    }
 }

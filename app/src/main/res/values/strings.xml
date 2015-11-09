@@ -2,6 +2,7 @@
     <string name="app_name">IpMap</string>
     <string name="title_activity_maps">IP Mapper</string>
     <string name="action_add">Add</string>
-    <string name="ip_address_hint">Enter IP Address</string>
     <string name="invalidip">Invalid IP address</string>
+    <string name="startingip">Start IP address</string>
+    <string name="endingip">End IP address</string>
 </resources>

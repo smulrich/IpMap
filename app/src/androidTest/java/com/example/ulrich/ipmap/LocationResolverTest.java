@@ -1,6 +1,5 @@
 package com.example.ulrich.ipmap;
 
-import android.location.Location;
 import android.test.AndroidTestCase;
 
 import junit.framework.Assert;
@@ -8,20 +7,16 @@ import junit.framework.Assert;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.mockito.stubbing.OngoingStubbing;
-
 import java.net.Inet4Address;
 import java.util.ArrayList;
-import java.util.List;
-
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
+
 
 /**
- * Created by ulrich on 11/8/15.
+ * LocationResolver Unit Tests
  */
 public class LocationResolverTest extends AndroidTestCase {
     private LocationResolver mResolver;
@@ -67,11 +62,6 @@ public class LocationResolverTest extends AndroidTestCase {
         Mockito.doAnswer(new Answer() {
             @Override
             public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
-//                Object[] args = invocationOnMock.getArguments();
-//                String iparg = (String) args[0];
-//                LocationRequestListener callbackarg = (LocationRequestListener) args[1];
-//                callbackarg.LocationFound(iparg, 100, 100);
-
                 return null;
             }
         }).when(mMockClient).GetLocationByIp(anyString(), isA(LocationRequestListener.class));
@@ -154,7 +144,7 @@ public class LocationResolverTest extends AndroidTestCase {
         Mockito.verify(mMockClient, times(3)).GetLocationByIp(anyString(), eq(testListener));
     }
 
-    public void testGetLocationByIp_StartGreaterThanEnd_NoCallbacks() throws Exception {
+    public void testGetLocationByIp_StartGreaterThanEnd_Wraps() throws Exception {
 
         LocationRequestListener testListener = new LocationRequestListener() {
             @Override
@@ -168,10 +158,10 @@ public class LocationResolverTest extends AndroidTestCase {
             }
         };
 
-        String testStartIPString = "174.100.100.102";
+        String testStartIPString = "255.255.255.254";
         Inet4Address testStartIP = (Inet4Address) Inet4Address.getByName(testStartIPString);
 
-        String testEndIPString = "174.100.100.100";
+        String testEndIPString = "0.0.0.1";
         Inet4Address testEndIP = (Inet4Address) Inet4Address.getByName(testEndIPString);
 
         final ArrayList<String> calledIps = new ArrayList<String>();
@@ -187,7 +177,7 @@ public class LocationResolverTest extends AndroidTestCase {
         mResolver = new LocationResolver(mMockClient);
         mResolver.getLocations(testStartIP, testEndIP, testListener);
 
-        Mockito.verify(mMockClient, times(0)).GetLocationByIp(anyString(), eq(testListener));
+        Mockito.verify(mMockClient, times(1)).GetLocationByIp(testEndIPString, testListener);
     }
 
     public void testGetLocationByIp_RangeHasPrivateIP_SkipsPrivateIP() throws Exception {
@@ -224,5 +214,44 @@ public class LocationResolverTest extends AndroidTestCase {
         mResolver.getLocations(testStartIP, testEndIP, testListener);
 
         Mockito.verify(mMockClient, times(2)).GetLocationByIp(anyString(), eq(testListener));
+    }
+
+    public void testGetLocationByIp_RangeTooLarge_CallbackError() throws Exception {
+
+        final int[] errorCodeResponse = new int[]{0};
+
+        LocationRequestListener testListener = new LocationRequestListener() {
+            @Override
+            public void LocationFound(String ip, float latitude, float longitude) {
+
+            }
+
+            @Override
+            public void ErrorOccured(int code, String message) {
+                errorCodeResponse[0] = code;
+            }
+        };
+
+        String testStartIPString = "100.0.0.0";
+        Inet4Address testStartIP = (Inet4Address) Inet4Address.getByName(testStartIPString);
+
+        String testEndIPString = "100.0.0.5";
+        Inet4Address testEndIP = (Inet4Address) Inet4Address.getByName(testEndIPString);
+
+        final ArrayList<String> calledIps = new ArrayList<String>();
+
+        Mockito.doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
+                calledIps.add((String)invocationOnMock.getArguments()[0]);
+                return null;
+            }
+        }).when(mMockClient).GetLocationByIp(anyString(), isA(LocationRequestListener.class));
+
+        mResolver = new LocationResolver(mMockClient);
+        mResolver.setMaxQueries(2);
+        mResolver.getLocations(testStartIP, testEndIP, testListener);
+
+        Assert.assertEquals(ILocationRestClient.ERROR_REQUEST_TOO_LARGE, errorCodeResponse[0]);
     }
 }

@@ -1,16 +1,20 @@
 package com.example.ulrich.ipmap;
 
 import android.content.Context;
+import android.content.DialogInterface;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v4.view.MenuItemCompat;
+import android.os.Handler;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.SearchView;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.Spanned;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -18,19 +22,25 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 
+/**
+ * Main activity of this application.
+ */
 public class MapsActivity extends AppCompatActivity {
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     public LocationResolver mLocationResolver;
     private Context mContext;
 
-    //Inpit filter to only allow valid ip as input
-    private InputFilter[] mIpInputFilters = new InputFilter[]{
+    //Input filter to only allow valid ip as input
+    private final InputFilter[] mIpInputFilters = new InputFilter[]{
             new InputFilter() {
                 public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dstart, int dend) {
                     if (end > start) {
@@ -56,9 +66,10 @@ public class MapsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-//        mLocationResolver = new FreegeoipRestClient(this);
-        mLocationResolver = new LocationResolver(new IpInfoDbRestClient(this));
+
         mContext = this;
+        mLocationResolver = new LocationResolver(new IpInfoDbRestClient(mContext));
+
         setUpMapIfNeeded();
     }
 
@@ -73,42 +84,6 @@ public class MapsActivity extends AppCompatActivity {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu, menu);
 
-//        final MenuItem searchMenuItem = menu.findItem(R.id.action_add);
-//        if (searchMenuItem != null) {
-//            final SearchView searchView = (SearchView) searchMenuItem.getActionView();
-//            if (searchView != null) {
-//                EditText searchEditTxt = (EditText) searchView.findViewById(android.support.v7.appcompat.R.id.search_src_text);
-//                searchEditTxt.setFilters(mIpInputFilters);
-//                searchEditTxt.setInputType(InputType.TYPE_CLASS_PHONE);
-//                searchEditTxt.setHint(R.string.ip_address_hint);
-//
-//                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-//                    @Override
-//                    public boolean onQueryTextSubmit(String s) {
-//                        searchView.clearFocus();
-//
-//                        MenuItemCompat.collapseActionView(searchMenuItem);
-//                        Inet4Address address = null;
-//                        try {
-//                             address = (Inet4Address) Inet4Address.getByName(s);
-//                        } catch (UnknownHostException e) {
-//                            //Do nothing.  We will know that an error occurred since address will be null
-//                        }
-//                        if(address == null)
-//                            Toast.makeText(mContext, R.string.invalidip, Toast.LENGTH_SHORT).show();
-//                        else
-//                            addIp(address);
-//
-//                        return true;
-//                    }
-//
-//                    @Override
-//                    public boolean onQueryTextChange(String s) {
-//                        return true;
-//                    }
-//                });
-//            }
-//        }
         return true;
     }
 
@@ -141,54 +116,152 @@ public class MapsActivity extends AppCompatActivity {
     }
 
     /**
-     * This is where we can add markers or lines, add listeners or move the camera. In this case, we
-     * just add a marker near Africa.
+     * This is where we can add markers or lines, add listeners or move the camera.
      * <p/>
      * This should only be called once and when we are sure that {@link #mMap} is not null.
      */
     private void setUpMap() {
+        mMap.animateCamera(CameraUpdateFactory.newLatLng(new LatLng(35.875214, -78.840746)));
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch(item.getItemId()){
+            case R.id.action_add:
+                showRangeDialog();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
 
     }
 
-    public void addIpInRange(Inet4Address start,Inet4Address end){
-        if(mLocationResolver != null)
-            mLocationResolver.getLocations(start, end, new LocationRequestListener() {
-                @Override
-                public void LocationFound(String ip, float latitude, float longitude) {
-                    LatLng location = new LatLng(latitude, longitude);
-                    mMap.addMarker(new MarkerOptions()
-                                    .position(location)
-                                    .title(ip)
-                    );
-                    //TODO once start and end results found, animate camera to fill screen.
-//                    mMap.animateCamera(CameraUpdateFactory.newLatLng(location));
-                }
+    private void showRangeDialog() {
+        LayoutInflater li = LayoutInflater.from(this);
+        View promptsView = li.inflate(R.layout.ipdialog, null);
 
-                @Override
-                public void ErrorOccured(int code, String message) {
-                    Toast.makeText(mContext, String.format("Error(%d):%s", code, message), Toast.LENGTH_SHORT).show();
-                }
-            });
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
+        alertDialogBuilder.setView(promptsView);
+
+        final EditText editStartIp = (EditText) promptsView.findViewById(R.id.editTextDialogStartIP);
+        editStartIp.setFilters(mIpInputFilters);
+        editStartIp.setInputType(InputType.TYPE_CLASS_PHONE);
+        final EditText editEndIp = (EditText) promptsView.findViewById(R.id.editTextDialogEndIP);
+        editEndIp.setFilters(mIpInputFilters);
+        editEndIp.setInputType(InputType.TYPE_CLASS_PHONE);
+
+        //Click handlers
+        alertDialogBuilder
+                .setCancelable(false)
+                .setPositiveButton(android.R.string.ok,
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,int id) {
+
+                                //Get start and end text and pass to LocationResolver
+                                String startip = editStartIp.getText().toString();
+                                String endip = editEndIp.getText().toString();
+                                addIpInRange(startip, endip);
+                                dialog.dismiss();
+                            }
+                        })
+                .setNegativeButton(android.R.string.cancel,
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                            }
+                        });
+
+
+        AlertDialog alertDialog = alertDialogBuilder.create();
+        alertDialog.show();
     }
 
-//    public void addIp(Inet4Address address){
-//        if(mLocationResolver != null) {
-//            mLocationResolver.GetLocationByIp(address, new LocationRequestListener() {
-//                @Override
-//                public void LocationFound(Inet4Address resultIp, float latitude, float longitude) {
-//                    LatLng location = new LatLng(latitude, longitude);
-//                    mMap.addMarker(new MarkerOptions()
-//                                    .position(location)
-//                                    .title(resultIp.getHostAddress())
-//                    );
-//                    mMap.animateCamera(CameraUpdateFactory.newLatLng(location));
-//                }
-//
-//                @Override
-//                public void ErrorOccured(int code, String message) {
-//                    Toast.makeText(mContext, String.format("Error(%d):%s", code, message), Toast.LENGTH_SHORT).show();
-//                }
-//            });
-//        }
-//    }
+    private void addIpInRange(String startIp,String endIp){
+        new AddIpRangeTask().execute(new IpRange(startIp, endIp));
+    }
+
+
+    /**
+     * AsyncTask for handling the LocationResolver (done in async task to enable throttling)
+     */
+    private class AddIpRangeTask extends AsyncTask<IpRange, Integer, Void>{
+
+        @Override
+        protected Void doInBackground(IpRange... ipRanges) {
+            if(mLocationResolver != null) {
+                mLocationResolver.CancellAll();
+                try {
+                    Inet4Address start = (Inet4Address) Inet4Address.getByName(ipRanges[0].start);
+                    Inet4Address end = (Inet4Address) Inet4Address.getByName(ipRanges[0].end);
+                    mLocationResolver.setThrottle(600);
+                    mLocationResolver.getLocations(start, end, mLocationRequestListener);
+                } catch (UnknownHostException e) {
+                    Toast.makeText(mContext, R.string.invalidip, Toast.LENGTH_SHORT).show();
+                    AppLog.e(e, "Invalid ip");
+                }
+
+            }
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+        }
+    }
+
+    /**
+     * Simple class for containing the start and end ip as strings.
+     */
+    private class IpRange {
+        public final String start;
+        public final String end;
+        public IpRange(String start, String end){
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    /**
+     * Handles callbacks from LocationResolver
+     */
+    private final LocationRequestListener mLocationRequestListener = new LocationRequestListener() {
+        private int lastErrorCode = 0;
+        private boolean isFirst = true;
+
+        @Override
+        public void LocationFound(final String ip, float latitude, float longitude) {
+
+            final LatLng location = new LatLng(latitude, longitude);
+
+            // Get a handler that can be used to post to the main thread
+            Handler mainHandler = new Handler(mContext.getMainLooper());
+            mainHandler.post( new Runnable() {
+                                  @Override
+                                  public void run() {
+                                      mMap.addMarker(new MarkerOptions().position(location).title(ip));
+                                      if(isFirst){
+                                          mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 10.0f));
+                                          isFirst = false;
+                                      }
+                                  }
+                              }
+            );
+        }
+
+        @Override
+        public void ErrorOccured(int code, String message) {
+            String msg = String.format("%s (%d)", message, code);
+            if(code != lastErrorCode) {  //We'll just show the first error for simplicity.
+                Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
+            }
+            lastErrorCode = code;
+            AppLog.e(null, msg);
+        }
+    };
 }

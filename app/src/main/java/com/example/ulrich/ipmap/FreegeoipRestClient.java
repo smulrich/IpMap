@@ -12,18 +12,12 @@ import com.android.volley.toolbox.Volley;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
-
 /**
- * Created by ulrich on 11/8/15.
+ * REST client to interface with Freegeoip.net
  */
 public class FreegeoipRestClient implements ILocationRestClient {
-    private Context mContext;
-    private RequestQueue mQueue;
-
-    //freegeoip.net/{format}/{IP_or_hostname}
-    private String API_BASE_URL = "http://freegeoip.net/";
+    private final Context mContext;
+    private final RequestQueue mQueue;
 
     public FreegeoipRestClient(Context c) {
         // Instantiate the RequestQueue.
@@ -31,15 +25,11 @@ public class FreegeoipRestClient implements ILocationRestClient {
         mQueue = Volley.newRequestQueue(c);
     }
 
-    /**
-     * Get the latitude and longitude for a given ip
-     * @param ip
-     * @param callback
-     */
+
     @Override
     public void GetLocationByIp(String  ip, final LocationRequestListener callback)
     {
-        String url = API_BASE_URL + "json/" + ip;
+        String url = "http://freegeoip.net/json/" + ip;
 
         // Request a json response from the provided URL.
         JsonObjectRequest jsonRequest = new JsonObjectRequest(Request.Method.GET, url, null,
@@ -77,8 +67,6 @@ public class FreegeoipRestClient implements ILocationRestClient {
 
     @Override
     public void StopAll() {
-        if (mQueue != null) {
-            mQueue.cancelAll(mContext);
-        }
+        mQueue.cancelAll(mContext);
     }
 }
